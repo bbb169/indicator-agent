@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -14,9 +14,8 @@ type PowerShellArgs = Record<string, string | number | undefined>;
 export type TdxController = {
   focusApp(): Promise<void>;
   switchSymbol(symbol: string): Promise<void>;
-  switchLayout(layoutId: string): Promise<void>;
   waitUntilStable(): Promise<void>;
-  captureScreenshot(symbol: string, layoutId: string): Promise<ScreenshotCapture>;
+  captureScreenshot(symbol: string): Promise<ScreenshotCapture>;
 };
 
 export class TodoTdxController implements TdxController {
@@ -34,42 +33,34 @@ export class TodoTdxController implements TdxController {
     await inputSymbol(symbol);
   }
 
-  async switchLayout(layoutId: string): Promise<void> {
-    // TODO: Confirm whether layouts are selected by hotkey, menu, workspace name,
-    // or already fixed on screen. If fixed, this can become a no-op.
-    throw new Error(`TODO: switch Tongdaxin layout ${layoutId}.`);
-  }
-
   async waitUntilStable(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, DEFAULT_STABLE_SETTLE_MS));
   }
 
-  async captureScreenshot(symbol: string, layoutId: string): Promise<ScreenshotCapture> {
-    // TODO: Replace placeholder file with real screenshot capture.
-    // Candidate approaches: PowerShell Add-Type System.Windows.Forms, screenshot-desktop,
-    // or AutoHotkey's screen capture helper.
+  async captureScreenshot(symbol: string): Promise<ScreenshotCapture> {
     await mkdir(this.config.screenshotDir, { recursive: true });
     const capturedAt = new Date().toISOString();
-    const filename = `${symbol}_${layoutId}_${capturedAt.replace(/[:.]/g, "-")}.todo.txt`;
+    const filename = `${symbol}_${capturedAt.replace(/[:.]/g, "-")}.png`;
     const screenshotPath = path.join(this.config.screenshotDir, filename);
 
-    await writeFile(
-      screenshotPath,
-      [
-        "TODO screenshot placeholder",
-        `symbol=${symbol}`,
-        `layoutId=${layoutId}`,
-        `capturedAt=${capturedAt}`,
-      ].join("\n"),
-      "utf8",
-    );
+    await captureCurrentWindow(screenshotPath);
 
     return {
       symbol,
-      layoutId,
       path: screenshotPath,
       capturedAt,
     };
+  }
+}
+
+async function captureCurrentWindow(outputPath: string): Promise<void> {
+  const scriptPath = path.join(process.cwd(), "scripts", "capture-current-window.ps1");
+
+  try {
+    await runPowerShellFile(scriptPath, { OutputPath: outputPath });
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to capture current window screenshot: ${details}`, { cause: error });
   }
 }
 

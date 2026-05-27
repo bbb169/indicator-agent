@@ -62,4 +62,20 @@ tdx
     }
   });
 
+tdx
+  .command("screenshot")
+  .description("Capture the current foreground window to the configured screenshot directory.")
+  .action(async () => {
+    try {
+      const config = await loadRuntimeConfig();
+      const controller = new TodoTdxController(config.visualScanner.tdx);
+      const capture = await controller.captureScreenshot("manual");
+
+      process.stdout.write(`${capture.path}\n`);
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 1;
+    }
+  });
+
 await program.parseAsync();

@@ -12,17 +12,14 @@ export async function runVisualScan(config: RuntimeConfig): Promise<VisualScanRe
   await controller.focusApp();
 
   for (const symbol of config.watchlist.symbols) {
-    for (const layout of config.visualScanner.layouts) {
-      // V1 keeps the active path simple: deterministic desktop actions produce
-      // one screenshot, and Gemini returns the full analysis for that screenshot.
-      await controller.switchSymbol(symbol);
-      await controller.switchLayout(layout.id);
-      await controller.waitUntilStable();
+    // V1 keeps the active path simple: deterministic desktop actions produce
+    // one current-window screenshot, and Gemini returns the full analysis for it.
+    await controller.switchSymbol(symbol);
+    await controller.waitUntilStable();
 
-      const capture = await controller.captureScreenshot(symbol, layout.id);
-      const analysis = await analyzer.analyze(capture);
-      results.push(analysis);
-    }
+    const capture = await controller.captureScreenshot(symbol);
+    const analysis = await analyzer.analyze(capture);
+    results.push(analysis);
   }
 
   return {

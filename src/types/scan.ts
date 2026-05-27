@@ -1,6 +1,5 @@
 export type ScreenshotCapture = {
   symbol: string;
-  layoutId: string;
   path: string;
   capturedAt: string;
 };
@@ -15,7 +14,6 @@ export type VisualIndicatorSummary = {
 
 export type VisualAnalysisResult = {
   symbol: string;
-  layoutId: string;
   screenshotPath: string;
   analyzedAt: string;
   indicators: VisualIndicatorSummary[];
