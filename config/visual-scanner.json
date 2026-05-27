@@ -1,0 +1,25 @@
+{
+  "tdx": {
+    "processName": "TdxW",
+    "windowTitleIncludes": "通达信金融终端",
+    "startupCommand": "C:\\new_tdx\\TdxW.exe",
+    "screenshotDir": "screenshots"
+  },
+  "layouts": [
+    {
+      "id": "multi-period",
+      "displayName": "multi-period",
+      "notes": "TODO: confirm the exact Tongdaxin layout/workspace name or hotkey."
+    }
+  ],
+  "vision": {
+    "provider": "gemini",
+    "model": "TODO-gemini-vision-model",
+    "promptPath": "prompts/gemini-screenshot-analysis.md"
+  },
+  "workflowAgent": {
+    "provider": "deepseek",
+    "model": "TODO-deepseek-workflow-model",
+    "enabled": false
+  }
+}

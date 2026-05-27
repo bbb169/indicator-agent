@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Indicator Agent
 
-## Getting Started
+TypeScript CLI framework for scanning Tongdaxin visually.
 
-First, run the development server:
+The active v1 flow is:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```text
+deterministic desktop automation -> screenshot capture -> Gemini vision analysis -> JSON result
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+DeepSeek is intentionally not in the active scan path for now. Gemini can return the screenshot analysis directly. A workflow/reasoning agent can be added later if we need retry policy, portfolio summaries, or higher-level decisions.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+```
 
-## Learn More
+## Config
 
-To learn more about Next.js, take a look at the following resources:
+- `watchlists/default.json`: stock symbols to scan.
+- `config/visual-scanner.json`: Tongdaxin window settings, layouts, and Gemini model placeholder.
+- `prompts/gemini-screenshot-analysis.md`: screenshot extraction prompt placeholder.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Create `.env` when Gemini integration is implemented:
 
-## Deploy on Vercel
+```bash
+GEMINI_API_KEY=TODO
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Commands
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Real scan is intentionally blocked by TODO implementations:
+
+```bash
+npm run scan
+```
+
+## Main TODOs
+
+1. Implement `TodoTdxController` in `src/tdx/tdx-controller.ts`.
+   - focus/open Tongdaxin
+   - type/select symbol
+   - switch or preserve layout
+   - capture real screenshot
+
+2. Implement `GeminiVisionAnalyzer` in `src/vision/vision-analyzer.ts`.
+   - choose exact Gemini model
+   - send screenshot
+   - enforce strict JSON result shape
+   - add confidence and retry hints
+
+3. Add retry policy only after we see real failure cases.
+
+## Design Rule
+
+Keep mouse/keyboard automation deterministic. Use Gemini for image analysis. Add a reasoning agent later only when the basic scan loop is stable.
