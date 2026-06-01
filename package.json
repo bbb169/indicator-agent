@@ -11,6 +11,7 @@
     "dev": "tsx src/cli.ts",
     "build": "tsup src/cli.ts --format esm --target node20 --clean --dts",
     "start": "node dist/cli.js",
+    "python:sdk": "set PYTHONPATH=python&& .venv\\Scripts\\python.exe -m tdx_sdk.server",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },

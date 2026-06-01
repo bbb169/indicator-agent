@@ -19,8 +19,11 @@ foreach ($char in $normalizedSymbol.ToCharArray()) {
   Start-Sleep -Milliseconds 40
 }
 
-$shell.SendKeys("{ENTER}")
 Start-Sleep -Milliseconds 100
+
+$shell.SendKeys("{ENTER}")
+
+Start-Sleep -Milliseconds 2000
 
 [pscustomobject]@{
   symbol = $normalizedSymbol

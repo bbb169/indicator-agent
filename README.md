@@ -5,16 +5,47 @@ TypeScript CLI framework for scanning Tongdaxin visually.
 The active v1 flow is:
 
 ```text
-deterministic desktop automation -> screenshot capture -> Gemini vision analysis -> JSON result
+deterministic desktop automation -> screenshot capture -> JSON result
 ```
 
-DeepSeek is intentionally not in the active scan path for now. Gemini can return the screenshot analysis directly. A workflow/reasoning agent can be added later if we need retry policy, portfolio summaries, or higher-level decisions.
+DeepSeek and Gemini are intentionally not in the active scan path for now. The scanner first makes the watchlist capture loop reliable, then image analysis can be added back when the screenshot set is stable.
 
 ## Install
 
 ```bash
 npm install
 ```
+
+## Python SDK
+
+Create the local Python environment and install the SDK dependencies:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple
+.venv\Scripts\python.exe -m pip install pandas -i https://pypi.tuna.tsinghua.edu.cn/simple
+.venv\Scripts\python.exe -m pip install backtrader -i https://pypi.tuna.tsinghua.edu.cn/simple
+.venv\Scripts\python.exe -m pip install vectorbt -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+Start the local SDK HTTP skeleton for future TypeScript integration:
+
+```bash
+npm run python:sdk
+```
+
+The service starts an empty local HTTP shell. Real trading SDK interfaces will
+be added later in `python/tdx_sdk`.
+
+To use Tongdaxin's own Python package, point the SDK at the terminal
+`PYPlugins/user` directory that contains `tqcenter.py`:
+
+```powershell
+$env:TDX_PYPLUGINS_USER="C:\path\to\TdxW\PYPlugins\user"
+```
+
+Importing `tdx_sdk` imports `from tqcenter import tq` and initializes it using
+the pattern from the Tongdaxin quant documentation.
 
 ## Config
 
@@ -32,7 +63,7 @@ GEMINI_API_KEY=TODO
 
 ## Commands
 
-Real scan is intentionally blocked by TODO implementations:
+Capture screenshots for every symbol in the watchlist and log the saved paths:
 
 ```bash
 npm run scan

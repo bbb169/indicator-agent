@@ -9,16 +9,21 @@ const program = new Command();
 
 program
   .name("indicator-agent")
-  .description("CLI framework for Tongdaxin screenshot scanning with Gemini vision analysis.")
+  .description("CLI framework for Tongdaxin screenshot scanning.")
   .version("0.1.0");
 
 program
   .command("scan")
-  .description("Run the visual scanner and emit a JSON result.")
+  .description("Capture watchlist screenshots and log the saved paths.")
   .action(async () => {
     try {
       const config = await loadRuntimeConfig();
+      process.stderr.write(`Scanning ${config.watchlist.symbols.length} symbols...\n`);
       const result = await runVisualScan(config);
+
+      for (const capture of result.results) {
+        process.stderr.write(`[scan] ${capture.symbol} -> ${capture.path}\n`);
+      }
 
       process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     } catch (error) {

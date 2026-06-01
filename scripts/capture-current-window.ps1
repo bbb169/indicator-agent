@@ -36,9 +36,6 @@ public static class WindowCaptureNative
     public static extern IntPtr GetAncestor(IntPtr hWnd, uint gaFlags);
 
     [DllImport("user32.dll")]
-    public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
-
-    [DllImport("user32.dll")]
     public static extern bool SetProcessDPIAware();
 
     [DllImport("dwmapi.dll")]
@@ -51,19 +48,30 @@ public static class WindowCaptureNative
 }
 "@
 
+# Ask Windows to give this PowerShell process physical screen pixels instead of
+# DPI-virtualized coordinates. Without this, a 150% scaled monitor can produce a
+# window rectangle that does not line up with CopyFromScreen's pixel grid.
 [WindowCaptureNative]::SetProcessDPIAware() | Out-Null
 
+# Resolve the output path before creating directories so the final JSON always
+# reports the absolute path that was actually written.
 $resolvedOutput = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath)
 $outputDir = Split-Path -Parent $resolvedOutput
 if ($outputDir) {
   New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 }
 
+# GetForegroundWindow may return a child HWND owned by the active app. The next
+# step promotes that child handle to the root window, which is the rectangle we
+# actually want for a full current-window screenshot.
 $handle = [WindowCaptureNative]::GetForegroundWindow()
 if ($handle -eq [IntPtr]::Zero) {
   throw "No foreground window is available to capture."
 }
 
+# GA_ROOT walks from a child/control HWND to the top-level window HWND. If
+# Windows cannot find a root ancestor, keep the foreground HWND and let the DWM
+# bounds call below be the source of truth.
 $rootHandle = [WindowCaptureNative]::GetAncestor($handle, [WindowCaptureNative]::GA_ROOT)
 if ($rootHandle -ne [IntPtr]::Zero) {
   $handle = $rootHandle
@@ -71,9 +79,10 @@ if ($rootHandle -ne [IntPtr]::Zero) {
 
 $rect = New-Object WindowCaptureNative+RECT
 
-# DWM's extended frame bounds match the visible window frame more closely on
-# modern Windows. Some windows do not expose DWM bounds, so fall back to the
-# classic full window rectangle when that API is unavailable or returns empty.
+# DWM's extended frame bounds match the visible modern Windows frame: the pixels
+# the user sees, excluding invisible resize borders that classic window APIs can
+# include. This script intentionally requires DWM bounds so failures are obvious
+# instead of silently switching to a different rectangle source.
 $dwmResult = [WindowCaptureNative]::DwmGetWindowAttribute(
   $handle,
   [WindowCaptureNative]::DWMWA_EXTENDED_FRAME_BOUNDS,
@@ -82,16 +91,20 @@ $dwmResult = [WindowCaptureNative]::DwmGetWindowAttribute(
 )
 
 $hasDwmBounds = $dwmResult -eq 0 -and ($rect.Right -gt $rect.Left) -and ($rect.Bottom -gt $rect.Top)
-if (-not $hasDwmBounds -and -not [WindowCaptureNative]::GetWindowRect($handle, [ref]$rect)) {
-  throw "Unable to read the foreground window bounds."
+if (-not $hasDwmBounds) {
+  throw "Unable to read DWM bounds for the foreground window. HRESULT: $dwmResult."
 }
 
+# RECT stores edges rather than size. Convert right/left and bottom/top into the
+# bitmap dimensions CopyFromScreen needs.
 $width = $rect.Right - $rect.Left
 $height = $rect.Bottom - $rect.Top
 if ($width -le 0 -or $height -le 0) {
   throw "Foreground window has invalid bounds: $width x $height."
 }
 
+# Create an in-memory bitmap exactly as large as the target window, then draw the
+# screen pixels starting from the window's top-left corner into bitmap origin 0,0.
 $bitmap = New-Object System.Drawing.Bitmap($width, $height)
 $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 
@@ -100,6 +113,8 @@ try {
   $bitmap.Save($resolvedOutput, [System.Drawing.Imaging.ImageFormat]::Png)
 }
 finally {
+  # System.Drawing objects hold native GDI handles, so dispose them even when
+  # capture or save throws. This keeps repeated scanner runs from leaking handles.
   $graphics.Dispose()
   $bitmap.Dispose()
 }

@@ -1,0 +1,10 @@
+{
+  "include": ["python"],
+  "extraPaths": [
+    "python",
+    "C:/new_tdx64/PYPlugins/user",
+    "C:/new_tdx/PYPlugins/user"
+  ],
+  "venvPath": ".",
+  "venv": ".venv"
+}

@@ -30,5 +30,5 @@ export type WorkflowDecision = {
 export type VisualScanResult = {
   startedAt: string;
   finishedAt: string;
-  results: VisualAnalysisResult[];
+  results: ScreenshotCapture[];
 };
