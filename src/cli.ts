@@ -2,6 +2,9 @@
 import "dotenv/config";
 import { Command } from "commander";
 import { loadRuntimeConfig } from "./config/load-config.js";
+import { normalizeCsvArgs } from "./lib/normalize-csv-args.js";
+import { parsePositiveIntegerOption } from "./lib/parse-positive-integer-option.js";
+import { pullMarketDataFromTwelveData } from "./market-data/twelve-data-provider.js";
 import { runVisualScan } from "./scanner/visual-scan-runner.js";
 import { TodoTdxController } from "./tdx/tdx-controller.js";
 
@@ -12,6 +15,8 @@ program
   .description("CLI framework for Tongdaxin screenshot scanning.")
   .version("0.1.0");
 
+// The scan command is the current top-level workflow: load config, run the
+// deterministic capture loop, then print the structured scan result to stdout.
 program
   .command("scan")
   .description("Capture watchlist screenshots and log the saved paths.")
@@ -34,6 +39,8 @@ program
 
 const tdx = program.command("tdx").description("Tongdaxin desktop automation helpers.");
 
+// Desktop automation commands share runtime config because window title,
+// startup command, and screenshot paths belong to the user's local setup.
 tdx
   .command("focus")
   .description("Focus the configured Tongdaxin window, launching it first if needed.")
@@ -77,6 +84,29 @@ tdx
       const capture = await controller.captureScreenshot("manual");
 
       process.stdout.write(`${capture.path}\n`);
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 1;
+    }
+  });
+
+// Market data uses Twelve Data directly. Provider request/response diagnostics
+// are written by the market-data layer to local files, so this command does not
+// print or rewrite the final transformed result.
+tdx
+  .command("data")
+  .argument("<symbols...>", "Twelve Data symbols to pull, e.g. AAPL EUR/USD 688318.SH.")
+  .option("-p, --period <period>", "Twelve Data interval, e.g. 1min, 30min, 1day.", "1day")
+  .option("-d, --days <days>", "Latest trading days to pull per stock.", parsePositiveIntegerOption, 2)
+  .description("Pull K-line market data from Twelve Data using a TDX-like output format.")
+  .action(async (symbols: string[], options) => {
+    try {
+      const normalizedSymbols = normalizeCsvArgs(symbols);
+      await pullMarketDataFromTwelveData({
+        symbols: normalizedSymbols,
+        interval: options.period,
+        days: options.days,
+      });
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
       process.exitCode = 1;

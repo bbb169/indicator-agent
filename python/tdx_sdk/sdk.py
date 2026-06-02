@@ -42,16 +42,25 @@ def _load_tdx() -> Any:
     if plugin_dir_text not in sys.path:
         sys.path.insert(0, plugin_dir_text)
 
-    from tqcenter import tq
+    from tqcenter import tq as loaded_tq
 
-    # Tongdaxin's quant runtime requires initialization before any `tq` API is
-    # used. Do it at module import time so the SDK fails fast if the local TDX
-    # terminal package is missing or misconfigured.
-    tq.initialize(str(tqcenter_path))
+    # Tongdaxin's docs require `tq.initialize(__file__)` before any API call.
+    # Pass this SDK module path, not `tqcenter.py`, so initialization matches
+    # the documented strategy-file pattern.
+    loaded_tq.initialize(__file__)
+    return loaded_tq
+
+
+tq: Any | None = None
+
+
+def _tdx() -> Any:
+    global tq
+
+    if tq is None:
+        tq = _load_tdx()
+
     return tq
-
-
-tq = _load_tdx()
 
 
 @dataclass(frozen=True)
@@ -60,4 +69,4 @@ class TdxSdk:
 
     def tdx(self) -> Any:
         """Return the module-level initialized Tongdaxin `tq` object."""
-        return tq
+        return _tdx()

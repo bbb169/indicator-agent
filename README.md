@@ -69,6 +69,23 @@ Capture screenshots for every symbol in the watchlist and log the saved paths:
 npm run scan
 ```
 
+Pull K-line data from Twelve Data and write it in the TDX-like JSON shape used
+by the agent:
+
+```powershell
+$env:TWELVE_DATA_API_KEY="your-api-key"
+npm run dev -- tdx data 688318.SH
+```
+
+By default, market data is written to `.data\tdx-market-data\`.
+
+Pull the latest 1 US trading day for a supported Twelve Data intraday interval.
+The provider receives `30min` directly; only the output is reshaped:
+
+```powershell
+npm run dev -- tdx data QQQ --period 30min --days 1
+```
+
 ## Main TODOs
 
 1. Implement `TodoTdxController` in `src/tdx/tdx-controller.ts`.

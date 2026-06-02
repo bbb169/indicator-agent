@@ -28,6 +28,7 @@ __pycache__/
 .DS_Store
 *.pem
 .data/
+.tmp/
 screenshots/*
 
 # debug
