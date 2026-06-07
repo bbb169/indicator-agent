@@ -16,37 +16,6 @@ DeepSeek and Gemini are intentionally not in the active scan path for now. The s
 npm install
 ```
 
-## Python SDK
-
-Create the local Python environment and install the SDK dependencies:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\python.exe -m pip install numpy -i https://pypi.tuna.tsinghua.edu.cn/simple
-.venv\Scripts\python.exe -m pip install pandas -i https://pypi.tuna.tsinghua.edu.cn/simple
-.venv\Scripts\python.exe -m pip install backtrader -i https://pypi.tuna.tsinghua.edu.cn/simple
-.venv\Scripts\python.exe -m pip install vectorbt -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
-
-Start the local SDK HTTP skeleton for future TypeScript integration:
-
-```bash
-npm run python:sdk
-```
-
-The service starts an empty local HTTP shell. Real trading SDK interfaces will
-be added later in `python/tdx_sdk`.
-
-To use Tongdaxin's own Python package, point the SDK at the terminal
-`PYPlugins/user` directory that contains `tqcenter.py`:
-
-```powershell
-$env:TDX_PYPLUGINS_USER="C:\path\to\TdxW\PYPlugins\user"
-```
-
-Importing `tdx_sdk` imports `from tqcenter import tq` and initializes it using
-the pattern from the Tongdaxin quant documentation.
-
 ## Config
 
 - `watchlists/default.json`: stock symbols to scan.
@@ -69,21 +38,21 @@ Capture screenshots for every symbol in the watchlist and log the saved paths:
 npm run scan
 ```
 
-Pull K-line data from Twelve Data and write it in the TDX-like JSON shape used
-by the agent:
+Pull K-line data from Twelve Data and write PineTS-compatible candles used by
+the agent:
 
 ```powershell
 $env:TWELVE_DATA_API_KEY="your-api-key"
 npm run dev -- tdx data 688318.SH
 ```
 
-By default, market data is written in TDX formula K-line format to `.data\tdx-formula-data\`.
+By default, market data is written to `.data\market-data\`.
 
-Pull the latest 1 US trading day for a supported Twelve Data intraday interval.
-The provider receives `30min` directly; only the output is reshaped:
+Pull the latest US trading day and derive local custom timeframes from the
+5-minute source candles:
 
 ```powershell
-npm run dev -- tdx data QQQ --period 30min --days 1
+npm run dev -- tdx data QQQ --days 1
 ```
 
 ## Main TODOs

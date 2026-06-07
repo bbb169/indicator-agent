@@ -1,15 +1,20 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
 import { isNodeErrorCode } from "../lib/node-error.js";
 import { sanitizePathPart } from "../lib/sanitize-path-part.js";
 import type {
   MarketDataCheckpoint,
+  MarketDataCandle,
   MarketDataTimeframe,
   PersistedMarketDataSet,
-  TdxFormulaKLineRecord,
 } from "../types/market-data.js";
 
-const TDX_FORMULA_DATA_DIR = path.join(".data", "tdx-formula-data");
+const MARKET_DATA_DIR = path.join(".data", "market-data");
+const MARKET_DATA_TIME_FORMAT = "YYYY-MM-DD HH:mm:ss";
+
+dayjs.extend(utc);
 
 export async function readMarketDataSet(
   symbol: string,
@@ -48,18 +53,19 @@ export async function writeMarketDataSet(
   timeframe: MarketDataTimeframe,
   sourceTimeframe: MarketDataTimeframe | null,
   latestTime: string | null,
-  stockData: TdxFormulaKLineRecord[],
+  stockData: MarketDataCandle[],
 ): Promise<PersistedMarketDataSet> {
+  const stockDataWithReadableTimes = stockData.map(withReadableMarketDataTimes);
   const dataSet: PersistedMarketDataSet = {
     symbol,
     timeframe,
     sourceTimeframe,
     updatedAt: new Date().toISOString(),
     latestTime,
-    stockData,
+    stockData: stockDataWithReadableTimes,
   };
 
-  await mkdir(TDX_FORMULA_DATA_DIR, { recursive: true });
+  await mkdir(MARKET_DATA_DIR, { recursive: true });
   await writeFile(marketDataSetPath(symbol, timeframe), `${JSON.stringify(dataSet, null, 2)}\n`, "utf8");
 
   return dataSet;
@@ -77,41 +83,55 @@ export async function writeMarketDataCheckpoint(
     latestTime,
   };
 
-  await mkdir(TDX_FORMULA_DATA_DIR, { recursive: true });
+  await mkdir(MARKET_DATA_DIR, { recursive: true });
   await writeFile(marketDataCheckpointPath(symbol, timeframe), `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
 
   return checkpoint;
 }
 
 export function mergeMarketDataRecords(
-  cachedRecords: TdxFormulaKLineRecord[],
-  fetchedRecords: TdxFormulaKLineRecord[],
-): TdxFormulaKLineRecord[] {
-  const recordsByTime = new Map<string, TdxFormulaKLineRecord>();
+  cachedRecords: MarketDataCandle[],
+  fetchedRecords: MarketDataCandle[],
+): MarketDataCandle[] {
+  const recordsByTime = new Map<number, MarketDataCandle>();
 
   // Twelve Data start_date is inclusive, so the first fetched bar after a
   // checkpoint can be the same bar already stored locally. Keying by timestamp
   // lets the freshest provider copy replace the cached record without creating
   // duplicate bars in the raw 5-minute source of truth.
   for (const record of [...cachedRecords, ...fetchedRecords]) {
-    recordsByTime.set(record.Date, record);
+    recordsByTime.set(record.openTime, record);
   }
 
   return [...recordsByTime.values()].sort(compareRecordsByTime);
 }
 
-export function lastRecordTime(records: TdxFormulaKLineRecord[]): string | null {
-  return records.at(-1)?.Date ?? null;
+export function lastRecordTime(records: MarketDataCandle[]): string | null {
+  const openTime = records.at(-1)?.openTime;
+
+  return openTime === undefined ? null : formatMarketDataTime(openTime);
 }
 
-function marketDataSetPath(symbol: string, timeframe: MarketDataTimeframe): string {
-  return path.join(TDX_FORMULA_DATA_DIR, `${sanitizePathPart(symbol)}-${timeframe}.json`);
+export function marketDataSetPath(symbol: string, timeframe: MarketDataTimeframe): string {
+  return path.join(MARKET_DATA_DIR, `${sanitizePathPart(symbol)}-${timeframe}.json`);
 }
 
 function marketDataCheckpointPath(symbol: string, timeframe: MarketDataTimeframe): string {
-  return path.join(TDX_FORMULA_DATA_DIR, `${sanitizePathPart(symbol)}-${timeframe}-checkpoint.json`);
+  return path.join(MARKET_DATA_DIR, `${sanitizePathPart(symbol)}-${timeframe}-checkpoint.json`);
 }
 
-function compareRecordsByTime(left: TdxFormulaKLineRecord, right: TdxFormulaKLineRecord): number {
-  return left.Date.localeCompare(right.Date);
+function compareRecordsByTime(left: MarketDataCandle, right: MarketDataCandle): number {
+  return left.openTime - right.openTime;
+}
+
+export function formatMarketDataTime(openTime: number): string {
+  return dayjs.utc(openTime).format(MARKET_DATA_TIME_FORMAT);
+}
+
+function withReadableMarketDataTimes(record: MarketDataCandle): MarketDataCandle {
+  return {
+    ...record,
+    time: formatMarketDataTime(record.openTime),
+    closeTimeText: formatMarketDataTime(record.closeTime),
+  };
 }

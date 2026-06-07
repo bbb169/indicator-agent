@@ -11,7 +11,6 @@
     "dev": "tsx src/cli.ts",
     "build": "tsup src/cli.ts --format esm --target node20 --clean --dts",
     "start": "node dist/cli.js",
-    "python:sdk": "set PYTHONPATH=python&& .venv\\Scripts\\python.exe -m tdx_sdk.server",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
@@ -27,6 +26,7 @@
   "dependencies": {
     "commander": "^14.0.3",
     "dayjs": "^1.11.21",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "pinets": "^0.9.19"
   }
 }

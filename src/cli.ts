@@ -4,9 +4,11 @@ import { Command } from "commander";
 import { loadRuntimeConfig } from "./config/load-config.js";
 import { normalizeCsvArgs } from "./lib/normalize-csv-args.js";
 import { parsePositiveIntegerOption } from "./lib/parse-positive-integer-option.js";
+import { runPineIndicator } from "./indicator/pine-indicator-runner.js";
 import { pullMarketDataFromTwelveData } from "./market-data/twelve-data-provider.js";
 import { runVisualScan } from "./scanner/visual-scan-runner.js";
 import { TodoTdxController } from "./tdx/tdx-controller.js";
+import type { MarketDataTimeframe } from "./types/market-data.js";
 
 const program = new Command();
 
@@ -38,6 +40,7 @@ program
   });
 
 const tdx = program.command("tdx").description("Tongdaxin desktop automation helpers.");
+const pine = program.command("pine").description("TradingView Pine indicator helpers.");
 
 // Desktop automation commands share runtime config because window title,
 // startup command, and screenshot paths belong to the user's local setup.
@@ -98,7 +101,7 @@ tdx
   .argument("<symbols...>", "Twelve Data symbols to pull, e.g. AAPL EUR/USD 688318.SH.")
   .option("-p, --period <period>", "Accepted for compatibility; data is fetched as 5min and derived locally.", "5min")
   .option("-d, --days <days>", "Initial trading-session lookback when no 5min checkpoint exists.", parsePositiveIntegerOption, 63)
-  .description("Pull 5-minute K-line market data and derive TDX-like multi-timeframe files.")
+  .description("Pull 5-minute K-line market data and derive local PineTS candle files.")
   .action(async (symbols: string[], options) => {
     try {
       const normalizedSymbols = normalizeCsvArgs(symbols);
@@ -113,4 +116,48 @@ tdx
     }
   });
 
+pine
+  .command("run")
+  .argument("<script>", "Script name under config/scripts, e.g. macd_variant.")
+  .argument("<symbols...>", "Symbols whose cached market data should be used.")
+  .option("-t, --timeframe <timeframe>", "Cached market-data timeframe.", "25m")
+  .description("Run a Pine indicator script against cached PineTS candle data.")
+  .action(async (script: string, symbols: string[], options) => {
+    try {
+      const outputPaths = await runPineIndicator({
+        script,
+        symbols: normalizeCsvArgs(symbols),
+        timeframe: parseMarketDataTimeframe(options.timeframe),
+      });
+
+      process.stdout.write(`${JSON.stringify({ results: outputPaths }, null, 2)}\n`);
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+      process.exitCode = 1;
+    }
+  });
+
 await program.parseAsync();
+
+function parseMarketDataTimeframes(value: string): MarketDataTimeframe[] {
+  const validTimeframes = new Set<MarketDataTimeframe>(["5m", "10m", "25m", "50m", "100m", "200m", "400m"]);
+  const timeframes = normalizeCsvArgs([value]);
+
+  for (const timeframe of timeframes) {
+    if (!validTimeframes.has(timeframe as MarketDataTimeframe)) {
+      throw new Error(`Unsupported market-data timeframe: ${timeframe}`);
+    }
+  }
+
+  return timeframes as MarketDataTimeframe[];
+}
+
+function parseMarketDataTimeframe(value: string): MarketDataTimeframe {
+  const timeframes = parseMarketDataTimeframes(value);
+
+  if (timeframes.length !== 1) {
+    throw new Error(`Expected exactly one timeframe, received: ${value}`);
+  }
+
+  return timeframes[0] as MarketDataTimeframe;
+}

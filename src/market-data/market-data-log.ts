@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isNodeErrorCode } from "../lib/node-error.js";
 import { sanitizePathPart } from "../lib/sanitize-path-part.js";
-import type { TwelveDataTimeSeriesPayload, TdxFormulaKLineRecord } from "../types/market-data.js";
+import type { MarketDataCandle, TwelveDataTimeSeriesPayload } from "../types/market-data.js";
 
 const TWELVE_DATA_LOG_DIR = path.join(".data", "twelve-data-logs");
 const BEIJING_TIME_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -24,7 +24,7 @@ export async function logTwelveDataResponse(
   stock: string,
   payload: TwelveDataTimeSeriesPayload,
   httpStatus: number,
-  records: TdxFormulaKLineRecord[],
+  records: MarketDataCandle[],
 ): Promise<void> {
   const values = payload.values ?? [];
 

@@ -1,3 +1,5 @@
+import type { Kline } from "pinets";
+
 export type PullMarketDataOptions = {
   symbols: string[];
   interval: string;
@@ -6,14 +8,9 @@ export type PullMarketDataOptions = {
 
 export type MarketDataTimeframe = "5m" | "10m" | "25m" | "50m" | "100m" | "200m" | "400m";
 
-export type TdxFormulaKLineRecord = {
-  Date: string;
-  Amount: number;
-  Volume: number;
-  Close: number;
-  Open: number;
-  High: number;
-  Low: number;
+export type MarketDataCandle = Kline & {
+  time?: string;
+  closeTimeText?: string;
 };
 
 export type PersistedMarketDataSet = {
@@ -22,7 +19,7 @@ export type PersistedMarketDataSet = {
   sourceTimeframe: MarketDataTimeframe | null;
   updatedAt: string;
   latestTime: string | null;
-  stockData: TdxFormulaKLineRecord[];
+  stockData: MarketDataCandle[];
 };
 
 export type MarketDataCheckpoint = {
@@ -53,4 +50,32 @@ export type TwelveDataFetchTimeSeriesOptions = {
   stock: string;
   interval: string;
   startDate: string;
+};
+
+export type IndicatorPlotPoint = {
+  time: string;
+  openTime: number;
+  value: number | null;
+};
+
+export type IndicatorResultRow = {
+  time: string;
+  openTime: number;
+  [plotTitle: string]: string | number | null;
+};
+
+export type PersistedIndicatorResult = {
+  script: string;
+  symbol: string;
+  timeframe: MarketDataTimeframe;
+  generatedAt: string;
+  barCount: number;
+  firstTime: string | null;
+  latestTime: string | null;
+  timeRange: {
+    firstTime: string | null;
+    latestTime: string | null;
+  };
+  plotTitles: string[];
+  values: IndicatorResultRow[];
 };

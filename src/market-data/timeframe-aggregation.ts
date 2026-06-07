@@ -1,4 +1,4 @@
-import type { MarketDataTimeframe, TdxFormulaKLineRecord } from "../types/market-data.js";
+import type { MarketDataCandle, MarketDataTimeframe } from "../types/market-data.js";
 
 type AggregationStep = {
   timeframe: MarketDataTimeframe;
@@ -16,9 +16,9 @@ export const DERIVED_TIMEFRAME_STEPS = [
 ] satisfies AggregationStep[];
 
 export function deriveMarketDataTimeframes(
-  rawFiveMinuteRecords: TdxFormulaKLineRecord[],
-): Map<MarketDataTimeframe, TdxFormulaKLineRecord[]> {
-  const recordsByTimeframe = new Map<MarketDataTimeframe, TdxFormulaKLineRecord[]>([
+  rawFiveMinuteRecords: MarketDataCandle[],
+): Map<MarketDataTimeframe, MarketDataCandle[]> {
+  const recordsByTimeframe = new Map<MarketDataTimeframe, MarketDataCandle[]>([
     ["5m", rawFiveMinuteRecords],
   ]);
 
@@ -35,11 +35,11 @@ export function deriveMarketDataTimeframes(
 }
 
 function aggregateSequentialBars(
-  sourceRecords: TdxFormulaKLineRecord[],
+  sourceRecords: MarketDataCandle[],
   groupSize: number,
-): TdxFormulaKLineRecord[] {
-  const aggregatedRecords: TdxFormulaKLineRecord[] = [];
-  let sameDayGroup: TdxFormulaKLineRecord[] = [];
+): MarketDataCandle[] {
+  const aggregatedRecords: MarketDataCandle[] = [];
+  let sameDayGroup: MarketDataCandle[] = [];
   let currentDate: string | null = null;
 
   const flushSameDayGroup = (): void => {
@@ -78,13 +78,11 @@ function aggregateSequentialBars(
   return aggregatedRecords;
 }
 
-function recordDatePart(record: TdxFormulaKLineRecord): string {
-  // Market-data timestamps use "YYYY-MM-DD HH:mm:ss"; the date prefix is the
-  // trading-day boundary used by the aggregation logic above.
-  return record.Date.slice(0, 10);
+function recordDatePart(record: MarketDataCandle): string {
+  return new Date(record.openTime).toISOString().slice(0, 10);
 }
 
-function aggregateBarGroup(group: TdxFormulaKLineRecord[]): TdxFormulaKLineRecord {
+function aggregateBarGroup(group: MarketDataCandle[]): MarketDataCandle {
   const firstRecord = group[0];
   const lastRecord = group.at(-1) ?? firstRecord;
 
@@ -93,24 +91,32 @@ function aggregateBarGroup(group: TdxFormulaKLineRecord[]): TdxFormulaKLineRecor
   // recalculate the same partial group from the raw 5m cache once more bars
   // arrive.
   return {
-    Date: firstRecord.Date,
-    Amount: sumRecordField(group, "Amount"),
-    Volume: sumRecordField(group, "Volume"),
-    Close: lastRecord.Close,
-    Open: firstRecord.Open,
-    High: maxRecordField(group, "High"),
-    Low: minRecordField(group, "Low"),
+    openTime: firstRecord.openTime,
+    closeTime: lastRecord.closeTime,
+    open: firstRecord.open,
+    high: maxRecordField(group, "high"),
+    low: minRecordField(group, "low"),
+    close: lastRecord.close,
+    volume: sumRecordField(group, "volume"),
+    quoteAssetVolume: sumRecordField(group, "quoteAssetVolume"),
+    numberOfTrades: sumRecordField(group, "numberOfTrades"),
+    takerBuyBaseAssetVolume: sumRecordField(group, "takerBuyBaseAssetVolume"),
+    takerBuyQuoteAssetVolume: sumRecordField(group, "takerBuyQuoteAssetVolume"),
+    ignore: 0,
   };
 }
 
-function maxRecordField(records: TdxFormulaKLineRecord[], field: "High"): number {
+function maxRecordField(records: MarketDataCandle[], field: "high"): number {
   return Math.max(...records.map((record) => record[field]));
 }
 
-function minRecordField(records: TdxFormulaKLineRecord[], field: "Low"): number {
+function minRecordField(records: MarketDataCandle[], field: "low"): number {
   return Math.min(...records.map((record) => record[field]));
 }
 
-function sumRecordField(records: TdxFormulaKLineRecord[], field: "Amount" | "Volume"): number {
+function sumRecordField(
+  records: MarketDataCandle[],
+  field: "volume" | "quoteAssetVolume" | "numberOfTrades" | "takerBuyBaseAssetVolume" | "takerBuyQuoteAssetVolume",
+): number {
   return records.reduce((sum, record) => sum + record[field], 0);
 }

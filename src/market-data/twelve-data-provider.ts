@@ -2,7 +2,7 @@ import type {
   PullMarketDataOptions,
   TwelveDataFetchTimeSeriesOptions,
   TwelveDataTimeSeriesPayload,
-  TdxFormulaKLineRecord,
+  MarketDataCandle,
 } from "../types/market-data.js";
 import { wait } from "./delay.js";
 import { logTwelveDataRequest, logTwelveDataResponse } from "./market-data-log.js";
@@ -15,7 +15,7 @@ import {
   writeMarketDataSet,
 } from "./market-data-store.js";
 import { marketDataStartDate } from "./market-data-window.js";
-import { toTdxFormulaRecords } from "./tdx-formula-data.js";
+import { toPineMarketDataCandles } from "./pine-market-data.js";
 import { DERIVED_TIMEFRAME_STEPS, deriveMarketDataTimeframes } from "./timeframe-aggregation.js";
 
 const TWELVE_DATA_TIME_SERIES_URL = "https://api.twelvedata.com/time_series";
@@ -64,7 +64,7 @@ async function fetchAndLogTwelveDataRecords(
   stock: string,
   interval: string,
   startDate: string,
-): Promise<TdxFormulaKLineRecord[]> {
+): Promise<MarketDataCandle[]> {
   // Fetch one symbol per request so provider errors can name the exact failing
   // symbol and each normalized record keeps the stock value the user supplied.
   const { payload, httpStatus } = await fetchTwelveDataTimeSeries({
@@ -78,7 +78,7 @@ async function fetchAndLogTwelveDataRecords(
     throw new Error(twelveDataFailureMessage(stock, payload, httpStatus));
   }
 
-  const records = toTdxFormulaRecords(stock, payload);
+  const records = toPineMarketDataCandles(stock, payload);
   await logTwelveDataResponse(stock, payload, httpStatus, records);
 
   return records;
@@ -139,7 +139,7 @@ async function readTwelveDataPayload(response: Response): Promise<TwelveDataTime
 function isSuccessfulTwelveDataPayload(payload: TwelveDataTimeSeriesPayload, httpStatus: number): boolean {
   // Provider errors are returned as JSON with status=error, often with HTTP
   // 200. Treat a missing values array as an error too, because the output
-  // transformer can only build TDX-like bars from values[].
+  // transformer can only build PineTS candles from values[].
   return httpStatus >= 200 && httpStatus < 300 && payload.status !== "error" && Array.isArray(payload.values);
 }
 
