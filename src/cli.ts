@@ -96,9 +96,9 @@ tdx
 tdx
   .command("data")
   .argument("<symbols...>", "Twelve Data symbols to pull, e.g. AAPL EUR/USD 688318.SH.")
-  .option("-p, --period <period>", "Twelve Data interval, e.g. 1min, 30min, 1day.", "1day")
-  .option("-d, --days <days>", "Latest trading days to pull per stock.", parsePositiveIntegerOption, 2)
-  .description("Pull K-line market data from Twelve Data using a TDX-like output format.")
+  .option("-p, --period <period>", "Accepted for compatibility; data is fetched as 5min and derived locally.", "5min")
+  .option("-d, --days <days>", "Initial trading-session lookback when no 5min checkpoint exists.", parsePositiveIntegerOption, 63)
+  .description("Pull 5-minute K-line market data and derive TDX-like multi-timeframe files.")
   .action(async (symbols: string[], options) => {
     try {
       const normalizedSymbols = normalizeCsvArgs(symbols);

@@ -77,7 +77,7 @@ $env:TWELVE_DATA_API_KEY="your-api-key"
 npm run dev -- tdx data 688318.SH
 ```
 
-By default, market data is written to `.data\tdx-market-data\`.
+By default, market data is written in TDX formula K-line format to `.data\tdx-formula-data\`.
 
 Pull the latest 1 US trading day for a supported Twelve Data intraday interval.
 The provider receives `30min` directly; only the output is reshaped:

@@ -4,10 +4,32 @@ export type PullMarketDataOptions = {
   days: number;
 };
 
-export type MarketDataRecord = {
-  stock: string;
-  time: string | null;
-  [field: string]: string | number | null;
+export type MarketDataTimeframe = "5m" | "10m" | "25m" | "50m" | "100m" | "200m" | "400m";
+
+export type TdxFormulaKLineRecord = {
+  Date: string;
+  Amount: number;
+  Volume: number;
+  Close: number;
+  Open: number;
+  High: number;
+  Low: number;
+};
+
+export type PersistedMarketDataSet = {
+  symbol: string;
+  timeframe: MarketDataTimeframe;
+  sourceTimeframe: MarketDataTimeframe | null;
+  updatedAt: string;
+  latestTime: string | null;
+  stockData: TdxFormulaKLineRecord[];
+};
+
+export type MarketDataCheckpoint = {
+  symbol: string;
+  timeframe: MarketDataTimeframe;
+  updatedAt: string;
+  latestTime: string | null;
 };
 
 export type TwelveDataTimeSeriesPayload = {

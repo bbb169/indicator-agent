@@ -1,16 +1,27 @@
 import type {
-  MarketDataRecord,
   PullMarketDataOptions,
   TwelveDataFetchTimeSeriesOptions,
   TwelveDataTimeSeriesPayload,
+  TdxFormulaKLineRecord,
 } from "../types/market-data.js";
 import { wait } from "./delay.js";
 import { logTwelveDataRequest, logTwelveDataResponse } from "./market-data-log.js";
+import {
+  lastRecordTime,
+  mergeMarketDataRecords,
+  readMarketDataCheckpoint,
+  readMarketDataSet,
+  writeMarketDataCheckpoint,
+  writeMarketDataSet,
+} from "./market-data-store.js";
 import { marketDataStartDate } from "./market-data-window.js";
-import { toTdxLikeRecords } from "./tdx-records.js";
+import { toTdxFormulaRecords } from "./tdx-formula-data.js";
+import { DERIVED_TIMEFRAME_STEPS, deriveMarketDataTimeframes } from "./timeframe-aggregation.js";
 
 const TWELVE_DATA_TIME_SERIES_URL = "https://api.twelvedata.com/time_series";
 const TWELVE_DATA_REQUEST_SPACING_MS = 2000;
+const TWELVE_DATA_SOURCE_INTERVAL = "5min";
+const RAW_MARKET_DATA_TIMEFRAME = "5m";
 
 type TwelveDataFetchTimeSeriesResult = {
   payload: TwelveDataTimeSeriesPayload;
@@ -18,16 +29,34 @@ type TwelveDataFetchTimeSeriesResult = {
 };
 
 export async function pullMarketDataFromTwelveData(options: PullMarketDataOptions): Promise<void> {
-  const interval = options.interval.trim().toLowerCase();
   const stockList = options.symbols.map((symbol) => symbol.trim()).filter(Boolean);
-  const startDate = marketDataStartDate(options.days);
 
   for (const [index, stock] of stockList.entries()) {
     if (index > 0) {
       await wait(TWELVE_DATA_REQUEST_SPACING_MS);
     }
 
-    await fetchAndLogTwelveDataRecords(stock, interval, startDate);
+    await refreshFiveMinuteCacheAndDerivedTimeframes(stock, options.days);
+  }
+}
+
+async function refreshFiveMinuteCacheAndDerivedTimeframes(stock: string, fallbackTradingDays: number): Promise<void> {
+  const checkpoint = await readMarketDataCheckpoint(stock, RAW_MARKET_DATA_TIMEFRAME);
+  const cachedDataSet = await readMarketDataSet(stock, RAW_MARKET_DATA_TIMEFRAME);
+  const startDate = checkpoint?.latestTime ?? cachedDataSet?.latestTime ?? marketDataStartDate(fallbackTradingDays);
+  const fetchedRecords = await fetchAndLogTwelveDataRecords(stock, TWELVE_DATA_SOURCE_INTERVAL, startDate);
+  const mergedRecords = mergeMarketDataRecords(cachedDataSet?.stockData ?? [], fetchedRecords);
+  const recordsByTimeframe = deriveMarketDataTimeframes(mergedRecords);
+  const latestFiveMinuteTime = lastRecordTime(mergedRecords);
+
+  await writeMarketDataSet(stock, RAW_MARKET_DATA_TIMEFRAME, null, latestFiveMinuteTime, mergedRecords);
+  await writeMarketDataCheckpoint(stock, RAW_MARKET_DATA_TIMEFRAME, latestFiveMinuteTime);
+
+  for (const step of DERIVED_TIMEFRAME_STEPS) {
+    const records = recordsByTimeframe.get(step.timeframe) ?? [];
+    const latestTime = lastRecordTime(records);
+
+    await writeMarketDataSet(stock, step.timeframe, step.sourceTimeframe, latestTime, records);
   }
 }
 
@@ -35,7 +64,7 @@ async function fetchAndLogTwelveDataRecords(
   stock: string,
   interval: string,
   startDate: string,
-): Promise<MarketDataRecord[]> {
+): Promise<TdxFormulaKLineRecord[]> {
   // Fetch one symbol per request so provider errors can name the exact failing
   // symbol and each normalized record keeps the stock value the user supplied.
   const { payload, httpStatus } = await fetchTwelveDataTimeSeries({
@@ -49,7 +78,7 @@ async function fetchAndLogTwelveDataRecords(
     throw new Error(twelveDataFailureMessage(stock, payload, httpStatus));
   }
 
-  const records = toTdxLikeRecords(stock, payload);
+  const records = toTdxFormulaRecords(stock, payload);
   await logTwelveDataResponse(stock, payload, httpStatus, records);
 
   return records;
@@ -63,8 +92,9 @@ async function fetchTwelveDataTimeSeries(
     throw new Error("Set TWELVE_DATA_API_KEY before pulling market data from Twelve Data.");
   }
 
-  // Do not translate symbol or interval here. The caller is expected to pass
-  // Twelve Data-compatible request values, e.g. AAPL + 30min or EUR/USD + 1day.
+  // Market-data refreshes always pass 5min here. Keeping the low-level fetcher
+  // interval-aware makes diagnostics truthful and leaves the function usable if
+  // a future command needs a direct Twelve Data interval again.
   const params = new URLSearchParams({
     symbol: options.stock,
     interval: options.interval,
