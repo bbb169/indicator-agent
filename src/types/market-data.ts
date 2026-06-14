@@ -52,6 +52,16 @@ export type TwelveDataFetchTimeSeriesOptions = {
   startDate: string;
 };
 
+export type TwelveDataMarketState = {
+  name?: string;
+  code?: string;
+  country?: string;
+  is_market_open?: boolean;
+  time_after_open?: string;
+  time_to_open?: string;
+  time_to_close?: string;
+};
+
 export type IndicatorPlotPoint = {
   time: string;
   openTime: number;

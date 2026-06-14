@@ -1,6 +1,7 @@
 import type {
   PullMarketDataOptions,
   TwelveDataFetchTimeSeriesOptions,
+  TwelveDataMarketState,
   TwelveDataTimeSeriesPayload,
   MarketDataCandle,
 } from "../types/market-data.js";
@@ -19,7 +20,8 @@ import { toPineMarketDataCandles } from "./pine-market-data.js";
 import { DERIVED_TIMEFRAME_STEPS, deriveMarketDataTimeframes } from "./timeframe-aggregation.js";
 
 const TWELVE_DATA_TIME_SERIES_URL = "https://api.twelvedata.com/time_series";
-const TWELVE_DATA_REQUEST_SPACING_MS = 2000;
+const TWELVE_DATA_MARKET_STATE_URL = "https://api.twelvedata.com/market_state";
+const TWELVE_DATA_REQUEST_SPACING_MS = 11000;
 const TWELVE_DATA_SOURCE_INTERVAL = "5min";
 const RAW_MARKET_DATA_TIMEFRAME = "5m";
 
@@ -38,6 +40,26 @@ export async function pullMarketDataFromTwelveData(options: PullMarketDataOption
 
     await refreshFiveMinuteCacheAndDerivedTimeframes(stock, options.days);
   }
+}
+
+export async function fetchTwelveDataMarketState(code = "XNYS"): Promise<TwelveDataMarketState | null> {
+  const apiKey = twelveDataApiKey();
+  const params = new URLSearchParams({
+    code,
+    apikey: apiKey,
+  });
+  const response = await fetch(`${TWELVE_DATA_MARKET_STATE_URL}?${params.toString()}`);
+  const payload = (await readTwelveDataJsonPayload(response)) as unknown;
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Twelve Data market_state HTTP error: ${response.status}`);
+  }
+
+  if (!Array.isArray(payload)) {
+    throw new Error(`Twelve Data market_state failed: ${JSON.stringify(payload)}`);
+  }
+
+  return (payload[0] as TwelveDataMarketState | undefined) ?? null;
 }
 
 async function refreshFiveMinuteCacheAndDerivedTimeframes(stock: string, fallbackTradingDays: number): Promise<void> {
@@ -87,10 +109,7 @@ async function fetchAndLogTwelveDataRecords(
 async function fetchTwelveDataTimeSeries(
   options: TwelveDataFetchTimeSeriesOptions,
 ): Promise<TwelveDataFetchTimeSeriesResult> {
-  const apiKey = process.env.TWELVE_DATA_API_KEY ?? process.env.TWELVEDATA_API_KEY;
-  if (!apiKey) {
-    throw new Error("Set TWELVE_DATA_API_KEY before pulling market data from Twelve Data.");
-  }
+  const apiKey = twelveDataApiKey();
 
   // Market-data refreshes always pass 5min here. Keeping the low-level fetcher
   // interval-aware makes diagnostics truthful and leaves the function usable if
@@ -116,7 +135,21 @@ async function fetchTwelveDataTimeSeries(
   };
 }
 
+function twelveDataApiKey(): string {
+  const apiKey = process.env.TWELVE_DATA_API_KEY ?? process.env.TWELVEDATA_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("Set TWELVE_DATA_API_KEY before requesting Twelve Data.");
+  }
+
+  return apiKey;
+}
+
 async function readTwelveDataPayload(response: Response): Promise<TwelveDataTimeSeriesPayload> {
+  return (await readTwelveDataJsonPayload(response)) as TwelveDataTimeSeriesPayload;
+}
+
+async function readTwelveDataJsonPayload(response: Response): Promise<unknown> {
   const responseText = await response.text();
 
   if (!responseText.trim()) {
@@ -127,7 +160,7 @@ async function readTwelveDataPayload(response: Response): Promise<TwelveDataTime
   }
 
   try {
-    return JSON.parse(responseText) as TwelveDataTimeSeriesPayload;
+    return JSON.parse(responseText) as unknown;
   } catch {
     return {
       status: response.ok ? "ok" : "error",
