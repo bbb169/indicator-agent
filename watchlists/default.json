@@ -1,19 +1,20 @@
 {
   "symbols": [
-    "ORCL",
-    "LRCX",
-    "AVGO",
     "ARM",
-    "AMD",
-    "AMZN",
-    "AMAT",
-    "INTC",
-    "TSM",
-    "TSLA",
+    "SNDK",
+    "KLAC",
+    "SPCX",
     "MU",
-    "UNH",
+    "INTC",
+    "AMAT",
+    "AMD",
+    "LRCX",
+    "TSM",
     "QQQ",
-    "GOOG",
-    "NVDA"
+    "AVGO",
+    "PANW",
+    "QCOM",
+    "STX",
+    "ANET"
   ]
 }

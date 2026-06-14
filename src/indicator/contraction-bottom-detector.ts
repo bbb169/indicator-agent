@@ -210,7 +210,7 @@ export function classifyBottomCandidate(
 }
 
 export function findPreviousNegativeValley(rows: MacdSignalRow[], beforeIndex: number): number | null {
-  for (let index = beforeIndex - 1; index >= 1; index -= 1) {
+  for (let index = beforeIndex - 1; index >= Math.max(0, beforeIndex - 50); index -= 1) {
     if (isNegativeValley(rows, index)) {
       return index;
     }
